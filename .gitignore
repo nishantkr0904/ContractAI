@@ -1,0 +1,67 @@
+# =========================
+# Project-Specific (from Blueprint)
+# =========================
+logs/
+*.db
+*.pdf
+.vscode/
+.idea/
+coverage/
+
+# =========================
+# .NET / C# (Backend)
+# =========================
+bin/
+obj/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+*.userprefs
+TestResults/
+packages/
+*.nupkg
+*.snk
+.vs/
+*.sqlite
+*.mdf
+*.ldf
+
+# =========================
+# Node.js / Frontend
+# =========================
+node_modules/
+dist/
+build/
+npm-debug.log
+yarn-error.log
+.pnp
+.pnp.js
+
+# =========================
+# C++ / Parser Engine
+# =========================
+parser/build/
+*.o
+*.obj
+*.out
+*.app
+*.exe
+*.dll
+*.so
+*.dylib
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+compile_commands.json
+
+# =========================
+# General OS / Tools
+# =========================
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+Thumbs.db
