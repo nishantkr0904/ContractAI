@@ -1,12 +1,29 @@
+using System.Diagnostics;
+using ContractAI.API.Middleware;
+using Serilog;
+using Serilog.Formatting.Compact;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+builder.Services.AddSerilog(config => config
+    .ReadFrom.Configuration(builder.Configuration)
+    .WriteTo.Console(new CompactJsonFormatter()));
+
 builder.Services.AddOpenApi();
+builder.Services.AddHealthChecks();
+
+builder.Services.AddProblemDetails(options =>
+    options.CustomizeProblemDetails = context =>
+        context.ProblemDetails.Extensions["traceId"] =
+            Activity.Current?.Id ?? context.HttpContext.TraceIdentifier);
+
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+app.UseExceptionHandler();
+app.UseSerilogRequestLogging();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -14,28 +31,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+app.MapHealthChecks("/healthz");
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
