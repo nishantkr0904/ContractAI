@@ -1,0 +1,17 @@
+services:
+  database:
+    image: pgvector/pgvector:pg16
+    container_name: contractai_db
+    restart: always
+    environment:
+      POSTGRES_DB: contractai_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/schema:/docker-entrypoint-initdb.d
+
+volumes:
+  pgdata:
