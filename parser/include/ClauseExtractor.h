@@ -20,4 +20,8 @@ public:
     [[nodiscard]] std::vector<Clause> Extract(std::string_view text) const;
 };
 
+// Splits `text` into whitespace-delimited tokens. Each token is a view into
+// `text` (no content is copied), so every token shares `text`'s lifetime.
+[[nodiscard]] std::vector<std::string_view> Tokenize(std::string_view text);
+
 }  // namespace contractai
