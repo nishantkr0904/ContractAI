@@ -5,6 +5,7 @@ find_package(re2 REQUIRED)
 
 add_library(contract_parser SHARED
     src/ClauseExtractor.cpp
+    src/KeywordTrie.cpp
     src/Interop.cpp
 )
 
