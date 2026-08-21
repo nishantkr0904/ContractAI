@@ -17,4 +17,18 @@
     <ProjectReference Include="..\ContractAI.Data\ContractAI.Data.csproj" />
   </ItemGroup>
 
+  <!--
+    The native clause engine is built out-of-band by CMake (parser/CMakeLists.txt).
+    Copy whatever shared library it produced next to the managed assembly so
+    P/Invoke resolves "contract_parser" at runtime. Guarded on the directory so a
+    checkout that has not built the parser yet still restores and builds; the
+    parser is only needed once a contract is actually processed. The Docker build
+    (task 6.9) stages the Linux .so the same way.
+  -->
+  <ItemGroup Condition="Exists('..\..\parser\build')">
+    <None Include="..\..\parser\build\libcontract_parser.*"
+          CopyToOutputDirectory="PreserveNewest"
+          Visible="false" />
+  </ItemGroup>
+
 </Project>
