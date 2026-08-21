@@ -3,12 +3,14 @@ project(contract_parser LANGUAGES CXX)
 
 find_package(re2 REQUIRED)
 
-add_library(contract_parser SHARED
+set(PARSER_SOURCES
     src/ClauseExtractor.cpp
     src/KeywordTrie.cpp
     src/PatternMatcher.cpp
     src/Interop.cpp
 )
+
+add_library(contract_parser SHARED ${PARSER_SOURCES})
 
 target_compile_features(contract_parser PUBLIC cxx_std_20)
 
@@ -35,3 +37,28 @@ target_include_directories(contract_parser PUBLIC
 
 # RE2 is an implementation detail and must not leak across the C-ABI boundary.
 target_link_libraries(contract_parser PRIVATE re2::re2)
+
+# Off in the production image build (task 6.9), which needs no test binary.
+option(BUILD_TESTING "Build the parser test suite" ON)
+
+if(BUILD_TESTING)
+    enable_testing()
+
+    # Compiles the sources rather than linking contract_parser: the library hides
+    # every symbol but the extern "C" exports, and the suite tests the internal
+    # contractai:: API too. PARSER_STATIC_DEFINE neutralizes PARSER_API, which
+    # would otherwise resolve to dllimport for a consumer of the shared library.
+    add_executable(test_extraction tests/test_extraction.cpp ${PARSER_SOURCES})
+    target_compile_features(test_extraction PRIVATE cxx_std_20)
+    target_compile_definitions(test_extraction PRIVATE PARSER_STATIC_DEFINE)
+    target_include_directories(test_extraction PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_BINARY_DIR}/include
+    )
+    target_link_libraries(test_extraction PRIVATE re2::re2)
+
+    # One test per suite so a failure names the area, not just the binary.
+    foreach(suite tokenize trie patterns extract abi)
+        add_test(NAME parser.${suite} COMMAND test_extraction ${suite})
+    endforeach()
+endif()
