@@ -57,6 +57,17 @@ if(BUILD_TESTING)
     )
     target_link_libraries(test_extraction PRIVATE re2::re2)
 
+    # Opt-in for the ASan check (task 2.10) and CI in Phase 6; off by default so
+    # normal and production builds are untouched. UBSan rides along. macOS has no
+    # LeakSanitizer, so leak verdicts come from `leaks`; ASan here still catches
+    # use-after-free, double-free, and alloc/dealloc mismatch.
+    option(ENABLE_ASAN "Build the test suite with AddressSanitizer + UBSan" OFF)
+    if(ENABLE_ASAN)
+        target_compile_options(test_extraction PRIVATE
+            -fsanitize=address,undefined -fno-omit-frame-pointer -g)
+        target_link_options(test_extraction PRIVATE -fsanitize=address,undefined)
+    endif()
+
     # One test per suite so a failure names the area, not just the binary.
     foreach(suite tokenize trie patterns extract abi)
         add_test(NAME parser.${suite} COMMAND test_extraction ${suite})
