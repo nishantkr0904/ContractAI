@@ -53,4 +53,12 @@ PARSER_API int ParseContractClauses(
     return 0;
 }
 
+// Releases an array returned by ParseContractClauses. `count` is part of the
+// documented ABI but unused here: ClauseOutput holds no interior pointers, so
+// the whole block is reclaimed by a single free with no per-element walk.
+// Passing null is safe, as free(nullptr) is a defined no-op.
+PARSER_API void FreeClauseOutput(ClauseOutput* clauses, [[maybe_unused]] size_t count) {
+    std::free(clauses);
+}
+
 }  // extern "C"
