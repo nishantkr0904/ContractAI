@@ -1,0 +1,27 @@
+# Keep the build context small and free of host-built artifacts. The Linux engine .so
+# is compiled inside the image (stage 1); host bin/obj and any macOS .dylib must never
+# leak in and shadow it.
+**/bin/
+**/obj/
+parser/build/
+**/*.dylib
+**/*.so
+**/*.dll
+
+# Backend-only image: the SPA is built and served separately.
+frontend/
+
+# Not needed to build the backend.
+.git/
+.github/
+docs/
+database/
+contracts/
+scripts/
+*.md
+.vscode/
+.idea/
+.DS_Store
+docker-compose.yml
+Dockerfile
+.dockerignore
