@@ -26,9 +26,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install CMake and RE2
+        # libabsl-dev satisfies the absl targets re2's CMake config re-exports; without
+        # it find_package(re2) fails at its find_dependency(absl) step.
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake libre2-dev
+          sudo apt-get install -y cmake libre2-dev libabsl-dev
+      - name: Configure
+        run: cmake -S parser -B parser/build
+      - name: Build
+        run: cmake --build parser/build
+      - name: Run tests (CTest)
+        run: ctest --test-dir parser/build --output-on-failure
 
   # .NET 9 backend. The Testcontainers integration suite needs a Docker daemon, which the
   # ubuntu runner provides out of the box.
@@ -40,9 +48,16 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
+      - name: Restore
+        run: dotnet restore backend/ContractAI.sln
+      - name: Test
+        # The integration suite drives Testcontainers against the ubuntu runner's Docker
+        # daemon; unit and API tests run in-process.
+        run: dotnet test backend/ContractAI.sln --configuration Release --no-restore
 
-  # React/TypeScript frontend: lint, production build, and (added later) the Playwright
-  # end-to-end suite.
+  # React/TypeScript frontend: lint and production build. There is no `npm run test`
+  # script — the frontend's only tests are the Playwright E2E suite, run in its own step
+  # (task 6.8) — so the verification here is lint + build.
   web:
     runs-on: ubuntu-latest
     defaults:
@@ -56,3 +71,9 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
