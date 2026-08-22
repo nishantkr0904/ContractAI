@@ -184,6 +184,35 @@ public sealed class ContractsController(
             : Ok(contract);
     }
 
+    [HttpGet("{id:guid}/file")]
+    [Authorize(Policy = AuthPolicies.Reader)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetFile(Guid id, CancellationToken cancellationToken)
+    {
+        var tenantId = currentTenant.TenantId;
+
+        // Only the columns the download needs, tenant-scoped: a foreign or unknown id
+        // is a 404, so the blob is never fetched for a contract the caller cannot see.
+        var file = await db.Contracts
+            .AsNoTracking()
+            .Where(c => c.Id == id && c.TenantId == tenantId && !c.IsDeleted)
+            .Select(c => new { c.FileName, c.FileUri })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (file is null)
+        {
+            return Problem("Contract not found.", statusCode: StatusCodes.Status404NotFound);
+        }
+
+        // Streamed straight from the object store rather than buffered: the PDF can be
+        // tens of MB and the viewer only needs the bytes. The action result disposes
+        // the stream after the response is written. No download filename is set so the
+        // browser and react-pdf render it inline instead of forcing a save.
+        var stream = await blobStorage.DownloadAsync(BlobUri.ToObjectKey(file.FileUri), cancellationToken);
+        return File(stream, "application/pdf");
+    }
+
     [HttpGet("{id:guid}/clauses")]
     [Authorize(Policy = AuthPolicies.Reader)]
     [ProducesResponseType(typeof(ClauseListResponse), StatusCodes.Status200OK)]
