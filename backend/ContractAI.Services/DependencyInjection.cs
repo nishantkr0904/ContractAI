@@ -1,6 +1,7 @@
 using Amazon.Runtime;
 using Amazon.S3;
 using ContractAI.Core.Interfaces;
+using ContractAI.Services.Ai;
 using ContractAI.Services.Analysis;
 using ContractAI.Services.Parsing;
 using ContractAI.Services.Storage;
@@ -49,6 +50,17 @@ public static class DependencyInjection
         });
 
         services.AddSingleton<IBlobStorageService, S3BlobStorageService>();
+
+        // The API key is validated on start so a missing secret fails fast at boot
+        // rather than on the first search. The embedding client is a typed
+        // HttpClient: one pooled handler, base URL and auth header set from options.
+        services
+            .AddOptions<GenAiOptions>()
+            .Bind(configuration.GetSection(GenAiOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddHttpClient<IEmbeddingService, GoogleGenAiEmbeddingService>();
 
         return services;
     }
