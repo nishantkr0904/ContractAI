@@ -9,8 +9,13 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.2" />
+    <PackageReference Include="Dapper" Version="2.1.79" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="Moq" Version="4.20.72" />
+    <PackageReference Include="Npgsql" Version="9.0.3" />
+    <PackageReference Include="Pgvector" Version="0.3.2" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.14.0" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
@@ -24,6 +29,15 @@
        ControllerBase/ProblemDetailsFactory would not resolve without declaring it here. -->
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <!-- The real schema is the single source of truth for the integration DB: copy it
+       next to the test assembly so the Testcontainers fixture bootstraps the exact DDL
+       docker-compose mounts, not a drifting duplicate. -->
+  <ItemGroup>
+    <Content Include="..\..\database\schema\01_init.sql" Link="Schema\01_init.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
