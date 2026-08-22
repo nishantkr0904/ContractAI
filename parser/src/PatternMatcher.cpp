@@ -64,7 +64,7 @@ std::optional<PatternMatch> LongestPatternAt(std::string_view text, std::size_t 
 
     std::optional<PatternMatch> best;
     for (const Pattern& p : Patterns()) {
-        std::string_view match;
+        re2::StringPiece match;
         if (p.re.Match(text, pos, text.size(), RE2::ANCHOR_START, &match, 1) &&
             !match.empty() && (!best || match.size() > best->length)) {
             best = PatternMatch{match.size(), p.kind};
