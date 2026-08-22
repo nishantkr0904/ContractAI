@@ -3,6 +3,7 @@ using ContractAI.Core.Enums;
 using ContractAI.Core.Interfaces;
 using Dapper;
 using Npgsql;
+using Pgvector;
 
 namespace ContractAI.Data.Repositories;
 
@@ -53,6 +54,34 @@ public sealed class ClauseQueryRepository(NpgsqlDataSource dataSource) : IClause
         ORDER BY c.byte_offset NULLS LAST, c.created_at, c.id;
         """;
 
+    // Semantic search. The HNSW index (idx_clauses_embedding_hnsw, vector_cosine_ops)
+    // serves the ORDER BY, so the nearest-neighbour scan touches the index rather than
+    // every row. similarity_score is 1 - cosine_distance; the same expression gates on
+    // the threshold. Tenant scope joins through contracts (RLS is bypassed for the
+    // dev table owner), and NULL embeddings (best-effort embedding failures) are
+    // excluded so they never appear as zero-similarity noise.
+    private const string SearchSql = """
+        SELECT
+            c.id            AS ClauseId,
+            c.contract_id   AS ContractId,
+            ct.file_name    AS ContractFileName,
+            t.name          AS ClauseType,
+            c.raw_text      AS RawText,
+            1 - (c.embedding <=> @Query) AS SimilarityScore,
+            c.page_number   AS PageNumber
+        FROM contract_clauses c
+        JOIN contracts ct
+          ON ct.id = c.contract_id
+        LEFT JOIN clause_types t
+          ON t.id = c.clause_type_id
+        WHERE ct.tenant_id = @TenantId
+          AND ct.is_deleted IS NOT TRUE
+          AND c.embedding IS NOT NULL
+          AND 1 - (c.embedding <=> @Query) >= @Threshold
+        ORDER BY c.embedding <=> @Query
+        LIMIT @Limit;
+        """;
+
     public async Task<IReadOnlyList<ContractClause>> GetByContractAsync(
         Guid contractId,
         Guid tenantId,
@@ -67,6 +96,32 @@ public sealed class ClauseQueryRepository(NpgsqlDataSource dataSource) : IClause
                 cancellationToken: cancellationToken));
 
         return rows.Select(ToEntity).ToList();
+    }
+
+    public async Task<IReadOnlyList<ClauseSearchResult>> SearchClausesAsync(
+        float[] queryEmbedding,
+        Guid tenantId,
+        double similarityThreshold,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+
+        // Npgsql maps Pgvector.Vector to the `vector` type via the data source's
+        // UseVector() registration, so the parameter binds without a cast.
+        var rows = await connection.QueryAsync<ClauseSearchResult>(
+            new CommandDefinition(
+                SearchSql,
+                new
+                {
+                    Query = new Vector(queryEmbedding),
+                    TenantId = tenantId,
+                    Threshold = similarityThreshold,
+                    Limit = limit,
+                },
+                cancellationToken: cancellationToken));
+
+        return rows.ToList();
     }
 
     private static ContractClause ToEntity(ClauseRow row)

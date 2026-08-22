@@ -22,4 +22,28 @@ public interface IClauseQueryRepository
         Guid contractId,
         Guid tenantId,
         CancellationToken cancellationToken = default);
+
+    // Clauses across the tenant's contracts ranked by cosine similarity to the query
+    // vector. queryEmbedding must be unit-normalized and match the stored embedding
+    // dimension; hits below similarityThreshold are dropped and at most `limit` rows
+    // return, nearest first. Tenant scope is enforced exactly as in GetByContractAsync
+    // (join through contracts), so no foreign clause can surface.
+    Task<IReadOnlyList<ClauseSearchResult>> SearchClausesAsync(
+        float[] queryEmbedding,
+        Guid tenantId,
+        double similarityThreshold,
+        int limit,
+        CancellationToken cancellationToken = default);
 }
+
+// One semantic-search hit. SimilarityScore is 1 - cosine_distance, in [0, 1] for
+// unit vectors (higher is closer). ClauseType and PageNumber are nullable for the
+// same reasons they are on ContractClause.
+public sealed record ClauseSearchResult(
+    Guid ClauseId,
+    Guid ContractId,
+    string ContractFileName,
+    string? ClauseType,
+    string RawText,
+    double SimilarityScore,
+    int? PageNumber);

@@ -1,5 +1,6 @@
 using ContractAI.Core.Interfaces;
 using ContractAI.Data.Repositories;
+using Dapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -15,6 +16,10 @@ public static class DependencyInjection
     public static IServiceCollection AddContractAiData(
         this IServiceCollection services, string connectionString)
     {
+        // Dapper's type map is process-global rather than per-data-source, so the
+        // vector handler is registered here rather than in ConfigureContractAi.
+        SqlMapper.AddTypeHandler(new VectorTypeHandler());
+
         services.AddSingleton(_ =>
             new NpgsqlDataSourceBuilder(connectionString).ConfigureContractAi().Build());
 
