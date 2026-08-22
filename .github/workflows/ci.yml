@@ -55,9 +55,9 @@ jobs:
         # daemon; unit and API tests run in-process.
         run: dotnet test backend/ContractAI.sln --configuration Release --no-restore
 
-  # React/TypeScript frontend: lint and production build. There is no `npm run test`
-  # script — the frontend's only tests are the Playwright E2E suite, run in its own step
-  # (task 6.8) — so the verification here is lint + build.
+  # React/TypeScript frontend: lint, production build, and the Playwright end-to-end
+  # suite. There is no `npm run test` script — the E2E suite is the frontend's test layer,
+  # so it runs here via `npx playwright test` (headless by default).
   web:
     runs-on: ubuntu-latest
     defaults:
@@ -77,3 +77,16 @@ jobs:
         run: npm run lint
       - name: Build
         run: npm run build
+      - name: Install Playwright browsers
+        # --with-deps pulls the shared libraries headless Chromium needs on a bare runner.
+        run: npx playwright install --with-deps chromium
+      - name: Run end-to-end tests (Playwright)
+        # The suite starts Vite itself via the `webServer` block in playwright.config.ts.
+        run: npx playwright test
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
