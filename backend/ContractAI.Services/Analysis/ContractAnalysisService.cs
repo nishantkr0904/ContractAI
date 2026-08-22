@@ -15,6 +15,7 @@ public sealed class ContractAnalysisService(
     IBlobStorageService blobStorage,
     IPdfTextExtractor textExtractor,
     IClauseParser clauseParser,
+    IEmbeddingService embeddingService,
     ILogger<ContractAnalysisService> logger) : IContractAnalysisService
 {
     public async Task ProcessContractAsync(Guid contractId, CancellationToken cancellationToken = default)
@@ -94,11 +95,30 @@ public sealed class ContractAnalysisService(
                 PageNumber = extracted.PageNumberForByteOffset(clause.ByteOffset),
                 ByteOffset = clause.ByteOffset,
                 ConfidenceScore = clause.Confidence,
-                // Embedding stays null until Phase 4 generates it.
+                Embedding = await TryEmbedAsync(clause.Text, cancellationToken),
             });
         }
 
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    // Embedding is best-effort: a GenAI outage or rate limit must not fail an
+    // otherwise-successful parse, so a failure logs and leaves the column null. The
+    // clause is still persisted and text-searchable; it is simply absent from vector
+    // search until it is re-embedded.
+    private async Task<float[]?> TryEmbedAsync(string text, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await embeddingService.GenerateEmbeddingAsync(
+                text, EmbeddingTaskType.RetrievalDocument, cancellationToken);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            logger.LogWarning(
+                e, "Embedding generation failed for a clause; storing it without an embedding.");
+            return null;
+        }
     }
 
     // Get-or-create the clause_types rows the parsed categories map to. The worker
