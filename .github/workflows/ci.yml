@@ -1,0 +1,58 @@
+name: CI
+
+# Validate everything headed for main: pull requests that target it and direct pushes
+# (merge commits) to it. Per-component build and test commands are added in later steps.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A newer commit on the same branch or PR makes an in-flight run obsolete; cancel it so
+# CI always reports on the latest push rather than burning minutes on stale ones.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# CI only reads the repository; no write scopes are granted.
+permissions:
+  contents: read
+
+jobs:
+  # Native C++20 clause parser, built and unit-tested with CMake/CTest. RE2 is a system
+  # dependency (see parser/CMakeLists.txt); abseil is deliberately avoided.
+  parser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install CMake and RE2
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libre2-dev
+
+  # .NET 9 backend. The Testcontainers integration suite needs a Docker daemon, which the
+  # ubuntu runner provides out of the box.
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+  # React/TypeScript frontend: lint, production build, and (added later) the Playwright
+  # end-to-end suite.
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
